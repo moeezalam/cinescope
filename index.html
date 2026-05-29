@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CINE/SCOPE — IMDb Cinephile Dashboard</title>
+  <meta name="description" content="CineScope V2 — 10,000 IMDb movies decoded. Genre intelligence, director analytics, hidden gems, and personal taste profiling. 100% static, zero server calls.">
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bowlby+One&family=Bebas+Neue&family=DM+Mono:wght@400;500&family=Playfair+Display:ital,wght@1,900&display=swap">
+
+  <!-- CDN — NO integrity= attributes (hash mismatches silently drop library) -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     FULL-PAGE LOADING OVERLAY
+     hideLoader() is called BEFORE renderAll() — see js/main.js §init
+     ════════════════════════════════════════════════════════════════════════ -->
+<div id="page-loading" aria-live="polite" aria-label="Loading CineScope dashboard">
+  <div class="pl-inner">
+    <h1 class="pl-wordmark">CINE<span class="slash">/</span>SCOPE</h1>
+    <div class="pl-bar-wrap"><div class="pl-bar" id="pl-bar"></div></div>
+    <div class="pl-label" id="pl-label">THREADING THE REEL…</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     SAMPLE DATA NOTICE (shown when opened as file://)
+     ════════════════════════════════════════════════════════════════════════ -->
+<div id="sample-notice" class="sample-notice" style="display:none" role="alert">
+  <span>★ SAMPLE DATA — Run <code>python -m http.server 8080</code> then open <code>localhost:8080</code> for real data</span>
+  <button id="sample-dismiss" aria-label="Dismiss sample data notice">DISMISS</button>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     SKIP LINK (a11y)
+     ════════════════════════════════════════════════════════════════════════ -->
+<a class="skip-link" href="#main-content">Skip to main content</a>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     SPROCKET STRIP — 35 mm film perforations
+     ════════════════════════════════════════════════════════════════════════ -->
+<div class="sprocket" aria-hidden="true">
+  <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+  <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+  <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+  <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     HUD HEADER
+     ════════════════════════════════════════════════════════════════════════ -->
+<header class="hud">
+  <h1 class="wordmark"><a href="#">CINE<span class="slash">/</span>SCOPE</a></h1>
+  <div class="hud-meta">
+    <span class="pulse"><b>★ NOW SHOWING ★</b></span>
+    <b>10,000 IMDB MOVIES DECODED</b>
+    <span>GENRE · DIRECTOR · CRITIC · YOUR REEL</span>
+  </div>
+  <div class="hud-time">
+    <span class="lbl">STATUS</span>
+    HOUSE LIGHTS DOWN
+  </div>
+</header>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     SCROLLING TICKER
+     ════════════════════════════════════════════════════════════════════════ -->
+<div class="ticker" aria-label="CineScope highlights">
+  <div class="ticker-track">
+    <div class="ticker-content">
+      <span class="dot"></span><span>★ NOW SHOWING ★</span><span class="sep">·</span>
+      <span>10,000 IMDB MOVIES</span><span class="sep">·</span>
+      <span>GENRE DECODED</span><span class="sep">·</span>
+      <span>★ DIRECTOR INTELLIGENCE ★</span><span class="sep">·</span>
+      <span>CRITIC vs AUDIENCE</span><span class="sep">·</span>
+      <span>★ MATCH YOUR TASTE ★</span><span class="sep">·</span>
+      <span>HIDDEN GEMS SURFACED</span><span class="sep">·</span>
+      <span>★ YOUR REEL AWAITS ★</span><span class="sep">·</span>
+      <span>UPLOAD &amp; DISCOVER YOUR BLINDSPOTS</span><span class="sep">·</span>
+      <span>★ SURVIVORSHIP BIAS EXPLAINED ★</span><span class="sep">·</span>
+      <span>POPULARITY ≠ QUALITY</span><span class="sep">·</span>
+      <span>★ CONTRARIAN INDEX ★</span><span class="sep">·</span>
+    </div>
+    <div class="ticker-content" aria-hidden="true">
+      <span class="dot"></span><span>★ NOW SHOWING ★</span><span class="sep">·</span>
+      <span>10,000 IMDB MOVIES</span><span class="sep">·</span>
+      <span>GENRE DECODED</span><span class="sep">·</span>
+      <span>★ DIRECTOR INTELLIGENCE ★</span><span class="sep">·</span>
+      <span>CRITIC vs AUDIENCE</span><span class="sep">·</span>
+      <span>★ MATCH YOUR TASTE ★</span><span class="sep">·</span>
+      <span>HIDDEN GEMS SURFACED</span><span class="sep">·</span>
+      <span>★ YOUR REEL AWAITS ★</span><span class="sep">·</span>
+      <span>UPLOAD &amp; DISCOVER YOUR BLINDSPOTS</span><span class="sep">·</span>
+      <span>★ SURVIVORSHIP BIAS EXPLAINED ★</span><span class="sep">·</span>
+      <span>POPULARITY ≠ QUALITY</span><span class="sep">·</span>
+      <span>★ CONTRARIAN INDEX ★</span><span class="sep">·</span>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     SEARCH BAR (sticky, prominent)
+     ════════════════════════════════════════════════════════════════════════ -->
+<div id="search-bar-wrap" class="search-bar-wrap">
+  <div class="search-inner">
+    <div class="search-row">
+      <input type="search" id="search-input" class="search-input"
+             placeholder="SEARCH 10,000 FILMS…"
+             aria-label="Search movies by title, director, or genre"
+             autocomplete="off" spellcheck="false">
+      <span class="search-icon" aria-hidden="true">⌕</span>
+    </div>
+    <div class="search-filters" role="group" aria-label="Search filters">
+      <select id="sf-genre"      aria-label="Filter by genre"  class="sf-select">
+        <option value="">ALL GENRES</option>
+        <option>Drama</option><option>Comedy</option><option>Action</option>
+        <option>Thriller</option><option>Romance</option><option>Crime</option>
+        <option>Adventure</option><option>Sci-Fi</option><option>Horror</option>
+        <option>Biography</option><option>Animation</option><option>Mystery</option>
+      </select>
+      <select id="sf-rating" aria-label="Minimum rating" class="sf-select">
+        <option value="0">MIN RATING</option>
+        <option value="6">6.0+</option>
+        <option value="7">7.0+</option>
+        <option value="7.5">7.5+</option>
+        <option value="8">8.0+</option>
+        <option value="9">9.0+</option>
+      </select>
+      <select id="sf-runtime" aria-label="Filter by runtime" class="sf-select">
+        <option value="">ANY RUNTIME</option>
+        <option value="under90">UNDER 90 MIN</option>
+        <option value="90-120">90–120 MIN</option>
+        <option value="120-150">120–150 MIN</option>
+        <option value="over150">OVER 150 MIN</option>
+      </select>
+      <select id="sf-sort" aria-label="Sort results" class="sf-select">
+        <option value="relevance">SORT: RELEVANCE</option>
+        <option value="rating">SORT: RATING ↓</option>
+        <option value="votes">SORT: POPULARITY ↓</option>
+        <option value="revenue">SORT: REVENUE ↓</option>
+      </select>
+    </div>
+    <div id="search-count"   class="search-count"   aria-live="polite"></div>
+    <div id="search-results" class="search-results"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     MAIN CONTENT
+     ════════════════════════════════════════════════════════════════════════ -->
+<main id="main-content">
+
+  <!-- ─────────────────────────────────────────────────────────────────────
+       REEL 1 — THE GLOBAL STAGE  (teal)
+       ─────────────────────────────────────────────────────────────────── -->
+  <section class="reel reel-1" id="reel-1">
+    <button class="section-title" aria-expanded="true" aria-controls="r1-body">
+      THE GLOBAL STAGE
+    </button>
+
+    <div class="reel-body" id="r1-body">
+
+      <!-- Mini-stats row (full width) -->
+      <section class="card full-width">
+        <div class="mini-stats" id="r1-mini-stats">
+          <div class="mini-stat"><div class="ms-value" id="r1-total">—</div><div class="ms-label">TOTAL MOVIES</div></div>
+          <div class="mini-stat"><div class="ms-value" id="r1-avg">—</div><div class="ms-label">AVG IMDb RATING</div></div>
+          <div class="mini-stat"><div class="ms-value" id="r1-median">—</div><div class="ms-label">MEDIAN RATING</div></div>
+          <div class="mini-stat"><div class="ms-value" id="r1-runtime">—</div><div class="ms-label">MEDIAN RUNTIME (MIN)</div></div>
+          <div class="mini-stat"><div class="ms-value" id="r1-directors">—</div><div class="ms-label">DIRECTORS</div></div>
+          <div class="mini-stat"><div class="ms-value" id="r1-revenue">—</div><div class="ms-label">% REVENUE DATA</div></div>
+          <div class="mini-stat"><div class="ms-value" id="r1-top-genre">—</div><div class="ms-label">TOP GENRE</div></div>
+        </div>
+      </section>
+
+      <!-- Rating Distribution (half) -->
+      <section class="card">
+        <h2>RATING DISTRIBUTION</h2>
+        <div class="chart-wrap">
+          <canvas id="r1-rating-dist" aria-label="Rating distribution histogram showing counts per 0.5-star bin"></canvas>
+        </div>
+        <div class="insight-box" id="r1-rating-insight">
+          <span class="insight-label">★ Insight</span>Loading…
+        </div>
+      </section>
+
+      <!-- Votes vs Quality Scatter (half) -->
+      <section class="card">
+        <h2>POPULARITY vs QUALITY</h2>
+        <div class="quadrant-wrap">
+          <span class="ql tl">HIDDEN GEMS</span>
+          <span class="ql tr">CERTIFIED CLASSICS</span>
+          <span class="ql bl">FORGETTABLE</span>
+          <span class="ql br">CROWD PLEASERS</span>
+          <div class="chart-wrap">
+            <canvas id="r1-scatter" aria-label="Scatter plot of votes versus IMDb rating coloured by genre"></canvas>
+          </div>
+        </div>
+        <div class="insight-box">
+          <span class="insight-label">★ Insight</span>
+          Correlation between votes and rating is weak — popularity does not equal quality.
+          Films in the top-left quadrant are hidden gems awaiting discovery.
+        </div>
+      </section>
+
+      <!-- Genre Landscape (full) -->
+      <section class="card full-width">
+        <h2>GENRE LANDSCAPE</h2>
+        <div class="two-col-charts">
+          <div>
+            <p class="chart-label">MOVIES PER GENRE</p>
+            <div class="chart-wrap">
+              <canvas id="r1-genre-count" aria-label="Horizontal bar chart of movie count per genre"></canvas>
+            </div>
+          </div>
+          <div>
+            <p class="chart-label">RATING IQR PER GENRE</p>
+            <div class="chart-wrap">
+              <canvas id="r1-genre-box" aria-label="Box plot simulation showing Q1, median, Q3 per genre"></canvas>
+            </div>
+          </div>
+        </div>
+        <div class="insight-box" id="r1-genre-insight">
+          <span class="insight-label">★ Insight</span>Loading…
+        </div>
+      </section>
+
+      <!-- Genre Co-occurrence Heatmap (half) -->
+      <section class="card">
+        <h2>GENRE CO-OCCURRENCE</h2>
+        <p class="card-sub">How often genres appear together in the same film</p>
+        <div id="r1-cooc-container" class="heatmap-outer"></div>
+        <div class="insight-box" id="r1-cooc-insight">
+          <span class="insight-label">★ Insight</span>Loading…
+        </div>
+      </section>
+
+      <!-- Runtime Distribution (half) -->
+      <section class="card">
+        <h2>RUNTIME DISTRIBUTION</h2>
+        <div class="chart-wrap">
+          <canvas id="r1-runtime-dist" aria-label="Runtime distribution histogram in 10-minute bins"></canvas>
+        </div>
+        <div class="insight-box" id="r1-runtime-insight">
+          <span class="insight-label">★ Insight</span>Loading…
+        </div>
+      </section>
+
+    </div><!-- #r1-body -->
+  </section><!-- reel-1 -->
+
+
+  <!-- ─────────────────────────────────────────────────────────────────────
+       REEL 2 — THE CRITIC'S EYE  (red)
+       ─────────────────────────────────────────────────────────────────── -->
+  <section class="reel reel-2" id="reel-2">
+    <button class="section-title" aria-expanded="true" aria-controls="r2-body">
+      THE CRITIC'S EYE
+    </button>
+
+    <div class="reel-body" id="r2-body">
+
+      <!-- Metascore vs IMDb scatter (full) -->
+      <section class="card full-width">
+        <h2>CRITIC vs AUDIENCE — 2,000 FILM COMPARISON</h2>
+        <div class="chart-wrap chart-wrap-lg">
+          <canvas id="r2-scatter" aria-label="Scatter plot comparing Metascore to IMDb rating, coloured by genre"></canvas>
+        </div>
+        <div class="insight-box" id="r2-scatter-insight">
+          <span class="insight-label">★ Insight</span>Loading…
+        </div>
+      </section>
+
+      <!-- Genre divergence (half) -->
+      <section class="card">
+        <h2>GENRE DIVERGENCE</h2>
+        <p class="card-sub">Normalised Metascore (÷10) vs IMDb Rating per genre</p>
+        <div class="chart-wrap">
+          <canvas id="r2-genre-compare" aria-label="Grouped bar chart showing average Metascore vs IMDb rating per genre"></canvas>
+        </div>
+        <div class="insight-box" id="r2-genre-insight">
+          <span class="insight-label">★ Insight</span>Loading…
+        </div>
+      </section>
+
+      <!-- Metascore distribution (half) -->
+      <section class="card">
+        <h2>METASCORE DISTRIBUTION</h2>
+        <div class="chart-wrap">
+          <canvas id="r2-meta-dist" aria-label="Metascore distribution histogram in 10-point bins"></canvas>
+        </div>
+        <div class="insight-box" id="r2-dist-insight">
+          <span class="insight-label">★ Insight</span>Loading…
+        </div>
+      </section>
+
+      <!-- Critic darlings (half) -->
+      <section class="card">
+        <h2>CRITIC DARLINGS</h2>
+        <p class="card-sub">Highest Metascore relative to IMDb rating — critics loved them more</p>
+        <div id="r2-critic-list" class="film-list"></div>
+      </section>
+
+      <!-- Audience favourites (half) -->
+      <section class="card">
+        <h2>AUDIENCE FAVOURITES</h2>
+        <p class="card-sub">Highest IMDb relative to Metascore — audiences loved them more</p>
+        <div id="r2-audience-list" class="film-list"></div>
+      </section>
+
+    </div><!-- #r2-body -->
+  </section><!-- reel-2 -->
+
+
+  <!-- ─────────────────────────────────────────────────────────────────────
+       REEL 3 — THE DIRECTORS' CUT  (blue)
+       ─────────────────────────────────────────────────────────────────── -->
+  <section class="reel reel-3" id="reel-3">
+    <button class="section-title" aria-expanded="true" aria-controls="r3-body">
+      THE DIRECTORS' CUT
+    </button>
+
+    <div class="reel-body" id="r3-body">
+
+      <!-- Director leaderboard (full) -->
+      <section class="card full-width">
+        <h2>DIRECTOR LEADERBOARD</h2>
+        <div class="two-col-charts">
+          <div>
+            <p class="chart-label">MOST PROLIFIC (≥ 3 FILMS)</p>
+            <div class="chart-wrap chart-wrap-tall">
+              <canvas id="r3-prolific" aria-label="Horizontal bar chart of most prolific directors coloured by average rating"></canvas>
+            </div>
+          </div>
+          <div>
+            <p class="chart-label">HIGHEST RATED (MIN→AVG→MAX RANGE)</p>
+            <div class="chart-wrap chart-wrap-tall">
+              <canvas id="r3-rated" aria-label="Dot plot showing rating range and average for top directors"></canvas>
+            </div>
+          </div>
+        </div>
+        <div class="insight-box" id="r3-leader-insight">
+          <span class="insight-label">★ Insight</span>Loading…
+        </div>
+      </section>
+
+      <!-- Director × Genre heatmap (full) -->
+      <section class="card full-width">
+        <h2>DIRECTOR × GENRE HEATMAP</h2>
+        <p class="card-sub">Film count per genre for top 15 directors — intensity = number of films</p>
+        <div id="r3-heatmap-container" class="heatmap-outer"></div>
+        <div class="insight-box" id="r3-heatmap-insight">
+          <span class="insight-label">★ Insight</span>Loading…
+        </div>
+      </section>
+
+    </div><!-- #r3-body -->
+  </section><!-- reel-3 -->
+
+
+  <!-- ─────────────────────────────────────────────────────────────────────
+       REEL 4 — GENRE DEEP DIVE  (purple)
+       ─────────────────────────────────────────────────────────────────── -->
+  <section class="reel reel-4" id="reel-4">
+    <button class="section-title" aria-expanded="true" aria-controls="r4-body">
+      GENRE DEEP DIVE
+    </button>
+
+    <div class="reel-body" id="r4-body">
+
+      <!-- Runtime by genre (full) -->
+      <section class="card full-width">
+        <h2>RUNTIME BY GENRE</h2>
+        <div class="chart-wrap">
+          <canvas id="r4-runtime" aria-label="Horizontal bar chart of median runtime per genre sorted descending"></canvas>
+        </div>
+        <div class="insight-box" id="r4-runtime-insight">
+          <span class="insight-label">★ Insight</span>Loading…
+        </div>
+      </section>
+
+      <!-- Audience engagement (half) -->
+      <section class="card">
+        <h2>AUDIENCE ENGAGEMENT</h2>
+        <p class="card-sub">Median vote count per genre</p>
+        <div class="chart-wrap">
+          <canvas id="r4-votes" aria-label="Horizontal bar chart of median votes per genre sorted descending"></canvas>
+        </div>
+        <div class="insight-box" id="r4-votes-insight">
+          <span class="insight-label">★ Insight</span>Loading…
+        </div>
+      </section>
+
+      <!-- Rating consistency (half) -->
+      <section class="card">
+        <h2>RATING CONSISTENCY</h2>
+        <p class="card-sub">Standard deviation of ratings per genre (lower = more predictable)</p>
+        <div class="chart-wrap">
+          <canvas id="r4-consistency" aria-label="Bar chart of rating standard deviation per genre"></canvas>
+        </div>
+        <div class="insight-box" id="r4-consistency-insight">
+          <span class="insight-label">★ Insight</span>Loading…
+        </div>
+      </section>
+
+      <!-- Revenue by genre (full) -->
+      <section class="card full-width">
+        <h2>REVENUE BY GENRE</h2>
+        <p class="card-sub">Average gross revenue in USD millions per genre</p>
+        <div class="chart-wrap">
+          <canvas id="r4-revenue" aria-label="Horizontal bar chart of average revenue per genre"></canvas>
+        </div>
+        <div class="insight-box" id="r4-revenue-insight">
+          <span class="insight-label">★ Insight</span>Loading…
+        </div>
+      </section>
+
+      <!-- Hidden gems (full) -->
+      <section class="card full-width" id="r4-gems-card">
+        <h2>HIDDEN GEMS</h2>
+        <p class="card-sub">IMDb rating ≥ 7.5 · Under 50,000 votes · Overlooked masterpieces</p>
+        <div class="filter-pills" role="group" aria-label="Filter hidden gems by genre" id="r4-gems-pills">
+          <button class="pill active" data-genre="ALL">ALL</button>
+        </div>
+        <div id="r4-gems-grid" class="gems-grid"></div>
+      </section>
+
+    </div><!-- #r4-body -->
+  </section><!-- reel-4 -->
+
+
+  <!-- ─────────────────────────────────────────────────────────────────────
+       REEL 5 — YOUR REEL  (ochre)
+       ─────────────────────────────────────────────────────────────────── -->
+  <section class="reel reel-5" id="reel-5">
+    <button class="section-title" aria-expanded="true" aria-controls="r5-body">
+      YOUR REEL
+    </button>
+
+    <div class="reel-body" id="r5-body">
+
+      <!-- Privacy notice -->
+      <div class="full-width privacy-notice" aria-label="Privacy information">
+        🔒 &nbsp;ZERO SERVER CALLS — YOUR DATA IS PROCESSED ENTIRELY IN YOUR BROWSER AND NEVER LEAVES YOUR DEVICE
+      </div>
+
+      <!-- Upload card -->
+      <section class="card full-width" id="r5-upload">
+        <h2>UPLOAD YOUR IMDb RATINGS</h2>
+        <div class="upload-cols">
+          <div class="upload-instructions">
+            <p class="chart-label">HOW TO EXPORT FROM IMDb</p>
+            <ol>
+              <li>Go to your IMDb profile page</li>
+              <li>Click <b>Your ratings</b></li>
+              <li>Click the <b>⋯</b> three-dot menu (top-right)</li>
+              <li>Select <b>Export</b> — a <code>.csv</code> downloads</li>
+              <li>Drop the file below</li>
+            </ol>
+            <p class="upload-hint">The CSV should have columns: <em>Const, Your Rating, Title, IMDb Rating, Year, Genres…</em></p>
+          </div>
+          <div class="upload-area" id="r5-dropzone">
+            <input type="file" id="r5-file-input" accept=".csv"
+                   aria-label="Upload your IMDb ratings CSV file">
+            <label for="r5-file-input" class="upload-btn">
+              <span class="upload-icon">▲</span>
+              CHOOSE FILE
+              <span class="upload-hint-sm">or drag and drop your .csv here</span>
+            </label>
+            <p class="upload-status" id="r5-status" aria-live="polite"></p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Analysis area (hidden until upload) -->
+      <div id="r5-analysis" class="full-width r5-analysis" style="display:none">
+
+        <!-- Sub-tab navigation -->
+        <div class="subtab-nav" role="tablist" aria-label="Your Reel sub-sections">
+          <button class="subtab active" data-tab="patterns" role="tab" aria-selected="true"  id="tab-patterns" aria-controls="r5-tab-patterns">VIEWING PATTERNS</button>
+          <button class="subtab"        data-tab="taste"    role="tab" aria-selected="false" id="tab-taste"    aria-controls="r5-tab-taste">TASTE PROFILE</button>
+          <button class="subtab"        data-tab="blindspots" role="tab" aria-selected="false" id="tab-blind"  aria-controls="r5-tab-blindspots">BLINDSPOTS</button>
+          <button class="subtab"        data-tab="recs"     role="tab" aria-selected="false" id="tab-recs"    aria-controls="r5-tab-recs">RECOMMENDATIONS</button>
+        </div>
+
+        <!-- ── Tab A: Viewing Patterns ── -->
+        <div id="r5-tab-patterns" class="subtab-panel" role="tabpanel" aria-labelledby="tab-patterns">
+          <div class="mini-stats" id="r5-mini-stats" style="margin-bottom:22px"></div>
+          <div class="two-col-charts">
+            <section class="card">
+              <h2>MY GENRE BREAKDOWN</h2>
+              <div class="chart-wrap">
+                <canvas id="r5-genre-bar" aria-label="Your genre breakdown horizontal bar chart"></canvas>
+              </div>
+            </section>
+            <section class="card">
+              <h2>MY DECADE BREAKDOWN</h2>
+              <div class="chart-wrap">
+                <canvas id="r5-decade-bar" aria-label="Your decade breakdown bar chart"></canvas>
+              </div>
+            </section>
+          </div>
+          <div class="two-col-charts mt-22">
+            <section class="card">
+              <h2>MOST WATCHED DIRECTORS</h2>
+              <div class="chart-wrap">
+                <canvas id="r5-directors-bar" aria-label="Your most watched directors horizontal bar chart"></canvas>
+              </div>
+            </section>
+            <section class="card">
+              <h2>RATING TIMELINE</h2>
+              <div class="chart-wrap">
+                <canvas id="r5-timeline" aria-label="Your average rating over time line chart"></canvas>
+              </div>
+            </section>
+          </div>
+        </div><!-- tab-patterns -->
+
+        <!-- ── Tab B: Taste Profile ── -->
+        <div id="r5-tab-taste" class="subtab-panel" role="tabpanel" aria-labelledby="tab-taste" style="display:none">
+          <div class="two-col-charts">
+            <section class="card">
+              <h2>YOUR RATINGS vs IMDb</h2>
+              <p class="card-sub">Gold = your ratings · Blue = IMDb ratings (same films)</p>
+              <div class="chart-wrap">
+                <canvas id="r5-overlap" aria-label="Overlapping histograms of your ratings versus IMDb ratings"></canvas>
+              </div>
+            </section>
+            <section class="card">
+              <h2>CONTRARIAN INDEX</h2>
+              <p class="card-sub">X = IMDb rating · Y = your rating · diagonal = perfect agreement</p>
+              <div class="chart-wrap">
+                <canvas id="r5-contrarian" aria-label="Scatter plot of your rating versus IMDb rating showing contrarian films"></canvas>
+              </div>
+              <div class="insight-box" id="r5-contrarian-insight">
+                <span class="insight-label">★ Insight</span>Loading…
+              </div>
+            </section>
+          </div>
+          <section class="card full-width mt-22">
+            <h2>YOUR TASTE vs THE WORLD — BY GENRE</h2>
+            <p class="card-sub">
+              <span style="color:#1d4ed8">●</span> Global IMDb median &nbsp;
+              <span style="color:#cd7e2d">●</span> Your average &nbsp;
+              — Green line = you rate higher · Red line = you rate lower
+            </p>
+            <div id="r5-dumbbell" class="dumbbell-container" aria-label="Dumbbell chart comparing your taste to global IMDb medians by genre"></div>
+          </section>
+        </div><!-- tab-taste -->
+
+        <!-- ── Tab C: Blindspots ── -->
+        <div id="r5-tab-blindspots" class="subtab-panel" role="tabpanel" aria-labelledby="tab-blind" style="display:none">
+          <section class="card full-width">
+            <h2>YOUR BLINDSPOTS</h2>
+            <p class="card-sub">
+              A film with IMDb rating ≥ 7.5, over 50,000 votes, in a genre you watch regularly — that you haven't rated yet.
+            </p>
+            <div class="filter-pills" role="group" aria-label="Filter blindspots by genre" id="r5-blind-pills"></div>
+            <div id="r5-blind-count" class="result-count" aria-live="polite"></div>
+            <div id="r5-blind-grid" class="gems-grid"></div>
+          </section>
+        </div><!-- tab-blind -->
+
+        <!-- ── Tab D: Recommendations ── -->
+        <div id="r5-tab-recs" class="subtab-panel" role="tabpanel" aria-labelledby="tab-recs" style="display:none">
+          <section class="card full-width">
+            <h2>TAILORED FOR YOU</h2>
+            <p class="card-sub">Match score = genre affinity (50%) + director familiarity (25%) + IMDb quality (25%)</p>
+            <div class="rec-filters">
+              <div class="mood-group" role="group" aria-label="Mood filter">
+                <button class="mood-btn active" data-mood="ALL">ALL</button>
+                <button class="mood-btn" data-mood="EXCITING">EXCITING</button>
+                <button class="mood-btn" data-mood="THOUGHTFUL">THOUGHTFUL</button>
+                <button class="mood-btn" data-mood="LIGHT">LIGHT</button>
+                <button class="mood-btn" data-mood="DARK">DARK</button>
+                <button class="mood-btn" data-mood="EPIC">EPIC</button>
+              </div>
+              <select id="r5-runtime-filter" class="sf-select" aria-label="Filter recommendations by runtime">
+                <option value="any">ANY RUNTIME</option>
+                <option value="under90">UNDER 90 MIN</option>
+                <option value="90-120">90–120 MIN</option>
+                <option value="120-150">120–150 MIN</option>
+                <option value="over150">OVER 150 MIN</option>
+              </select>
+            </div>
+            <div id="r5-rec-count" class="result-count" aria-live="polite"></div>
+            <div id="r5-recs-grid" class="recs-grid"></div>
+          </section>
+        </div><!-- tab-recs -->
+
+      </div><!-- #r5-analysis -->
+    </div><!-- #r5-body -->
+  </section><!-- reel-5 -->
+
+
+  <!-- ─────────────────────────────────────────────────────────────────────
+       END MARK
+       ─────────────────────────────────────────────────────────────────── -->
+  <div class="end-mark" aria-label="End of feature">
+    ⊙ END OF FEATURE ⊙
+  </div>
+
+</main><!-- #main-content -->
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     FOOTER — clean, no social links, no newsletter
+     ════════════════════════════════════════════════════════════════════════ -->
+<footer class="site-footer">
+  <div class="footer-bottom">
+    <p>© 2026 CINESCOPE &nbsp;·&nbsp; ALL DATA PROCESSED LOCALLY</p>
+    <p>BUILD 2.0.0 &nbsp;·&nbsp; DATA: IMDb / Kaggle</p>
+    <p>
+      Run <code>python preprocess/process.py</code> to regenerate data
+    </p>
+  </div>
+  <div class="footer-fineprint">
+    <p>CineScope is an independent academic project. Not affiliated with, endorsed by, or sponsored by IMDb, Amazon, or any film studio.
+    "IMDb" and related marks are trademarks of their respective owners; references are descriptive only.</p>
+  </div>
+</footer>
+
+<!-- Main JS module — loaded last -->
+<script type="module" src="js/main.js"></script>
+
+</body>
+</html>
